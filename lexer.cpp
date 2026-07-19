@@ -25,13 +25,18 @@ final states = [3...10] // 3 to 10
 #include <map>
 #include <format>
 #include <sstream>
+#include <vector>
+#include <memory>
 #include "helper.h"
 #include "SyntaxErrorException.h"
+#include "AST.h"
 
 
 using namespace std;
 
 stringstream ss_msg;
+ofstream output("output.s");
+
 
 class Token {
     public:
@@ -49,18 +54,6 @@ class Token {
     }
 };
 
-// class SyntaxErrorException : public exception {
-// private:
-//     string msg;
-// public:
-//     // Constructor
-//     SyntaxErrorException(string message) : msg(message) {}
-
-//     // Override what() method
-//     const char* what() const noexcept override {
-//         return msg.c_str();
-//     }
-// };
 
 vector<vector<int>>stateTable = {
     {1,5,6,7,8,0,2,9,10},
@@ -212,61 +205,6 @@ Token next() {
     return tokenList[current];
 }
 
-class Symbol {
-    public:
-    string nt_symbol_name; // non-terminal symbol 
-    Symbol(){};
-    Symbol(string symbol) : nt_symbol_name(symbol) {};
-    string getSymbolName() {
-        return this->nt_symbol_name;
-    }
-};
-
-class Exp : public Symbol {
-    public:
-    int _integer;
-    Exp(){}
-    Exp(int integer) : Symbol("EXPRESSION") {
-        _integer=integer;
-    }
-    void setInt(int integer) {
-        _integer=integer;
-    }
-    int getInt() {
-        return this->_integer;
-    }
-};
-
-class Statement : public Symbol {
-    public:
-        Exp exp;
-        Statement(){}
-        Statement(Exp exp) : Symbol("STATEMENT") {
-            this->exp = exp; 
-        }
-        Exp getExp() {
-            return this->exp;
-        }
-};
-
-class Function : public Symbol {
-    public:
-    string _id;
-    Statement _stmt;
-    Function(){};
-    Function(string id, Statement stmt) : Symbol("FUNCTION"), _id(id), _stmt(stmt){};
-    string getId() {return this->_id;}
-    Statement getStmt() {return this->_stmt;}
-};
-
-class Program : public Symbol {
-    public:
-        Function _function;
-        Program(){};
-        Program(Function function) : Symbol("PROGRAM"), _function(function) {
-        }
-        Function getFunction() {return this->_function;}
-};
 
 Exp parseExp() {
     Token tkn = next();
@@ -362,20 +300,20 @@ Program parseProgram() {
 }
 
 void printExpression(Exp exp) {
-    cout << exp.getSymbolName() << " ";
+    cout << exp.getNodeType() << " ";
     cout << exp.getInt();
     return;
 }
 
 void printStatement(Statement stmt) {
-    cout << stmt.getSymbolName() << endl;
+    cout << stmt.getNodeType() << endl;
     cout << "\t\t";
     printExpression(stmt.getExp());
     return;
 }
 
 void printFunction(Function fn) {
-    cout << fn.getSymbolName() << endl;
+    cout << fn.getNodeType() << endl;
     cout << "\t";
     cout << fn.getId() << endl;
     cout << "\t";
@@ -383,10 +321,151 @@ void printFunction(Function fn) {
 }
 
 void printProgram(Program program) {
-    cout << program.getSymbolName() << endl;
+    cout << program.getNodeType() << endl;
     cout << "\t";
     printFunction(program.getFunction());
 }
+
+enum class OperandType { Imm, Register };
+
+struct Operand {
+    OperandType type;
+    Operand () {};
+    Operand(OperandType type) : type(type) {}
+};
+
+struct Imm : Operand {
+    int value;
+    Imm() {};
+    Imm(int val) : Operand(OperandType::Imm), value(val) {};
+};
+
+enum class RegisterName { EAX };
+
+string getRegisterName(RegisterName registerName) {
+        switch (registerName) {
+            case RegisterName::EAX: return "eax";
+        }
+        return "should not fall here";
+    }
+
+struct Register : Operand {
+    RegisterName registerName;
+    Register(RegisterName regName) : Operand(OperandType::Register), registerName(regName) {}
+};
+
+enum class InstructionType {
+    Mov,
+    Ret
+};
+
+struct Instruction {
+    InstructionType type;
+    Instruction(InstructionType type) : type(type) {}
+    virtual ~Instruction() = default;
+};
+
+struct Mov : Instruction {
+    Imm src;
+    Register dst;
+
+     Mov(const Imm& s, const Register& d)
+        : Instruction(InstructionType::Mov), src(s), dst(d) {}
+};
+
+struct Ret : Instruction {
+    Ret() : Instruction(InstructionType::Ret) {}
+};
+
+struct Func {
+    string identifier;
+    vector<unique_ptr<Instruction>> instructions;
+};
+
+struct Prog {
+    Func fn;
+};
+
+Imm genExp(const Exp& exp) {
+    // Imm imm;
+    // if(exp.getNodeType() == "EXPRESSION") {
+        Imm imm(exp.getInt());
+        // imm.value = exp.getInt();
+    // }
+    return imm;
+}
+
+vector<unique_ptr<Instruction>> genStmt(const Statement& stmt) {
+    // statement = statement ::= "return" <exp> ";"
+    vector<unique_ptr<Instruction>> instructions;
+    if(stmt.getNodeType() == "STATEMENT") {
+        Imm imm = genExp(stmt.getExp());
+        Register reg(RegisterName::EAX);
+        instructions.push_back(make_unique<Mov>(imm, reg));
+        instructions.push_back(make_unique<Ret>());
+    }
+    return instructions;
+}
+
+
+Func genFunc(const Function& function) {
+    // <function> ::= "int" <id> "(" ")" "{" <statement> "}"
+    Func fn;
+    if(function.getNodeType() == "FUNCTION") {
+        fn.identifier = function.getId();
+        fn.instructions = genStmt(function.getStmt());
+    }
+    return fn;
+}
+
+Prog genProg(const Program& program) {
+    // <program> ::= <function>
+    Prog prog;
+    if(program.getNodeType() == "PROGRAM") {
+        Func fn = genFunc(program.getFunction());
+        prog.fn = std::move(fn);
+    }
+    return prog;
+}
+
+// Emit Code
+
+void emitMov(const Mov& mov) {
+    output << "\t" << "movl\t";
+    output << "$" << mov.src.value << ", ";
+    output << "%" << getRegisterName(mov.dst.registerName) << endl;
+
+}
+
+void emitRet() {
+    output << "\t" << "ret" << endl;
+}
+
+void emitInstructions(const vector<unique_ptr<Instruction>>& instructions) {
+    for(const auto& instruction: instructions) {
+        // Get instruction type
+        InstructionType type = instruction->type;
+        if(type == InstructionType::Mov) {
+            const Mov* mov = static_cast<const Mov*>(instruction.get());
+            emitMov(*mov);
+        } else if(type == InstructionType::Ret) {
+            emitRet();
+        }
+    }
+
+}
+
+void emitFunc(const Func& fn) {
+    output << "\t" << ".globl " << fn.identifier << endl;
+    output << fn.identifier << ":" << endl;
+    emitInstructions(fn.instructions);
+}
+
+void emit(const Prog& prog) {
+    emitFunc(prog.fn);
+    output << "\t" << ".section\t" ".note.GNU-stack,\"\",@progbits" << endl;
+}
+
 
 int main()
 {
@@ -406,14 +485,16 @@ int main()
             line.push_back('$');
             tokenizer(line);
         }
+
+        // AST
         Program program = parseProgram(); 
-        // Statement stmt = parseStatement();
-        // printStatement(stmt);
-
-        // Function fn = parseFunction();
-
-        // printFunction(fn);
+    
         printProgram(program);
+
+        //assemby AST
+        Prog p = genProg(program);
+        cout << endl;
+        emit(p);
     }
     return 0;
 }
