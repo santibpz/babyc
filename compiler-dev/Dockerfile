@@ -5,7 +5,10 @@ RUN apt-get update && \
         build-essential \
         gdb \
         make \
-        vim
+        vim \
+        python3 \
+        python3-pip \
+        python3-venv 
 WORKDIR /workspace
 
 CMD ["/bin/bash"]

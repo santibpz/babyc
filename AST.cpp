@@ -1,49 +1,38 @@
 #include "AST.h"
+using namespace AST;
 
-// Node::Node() : _type("NODE") {}
-
-Node::Node(string type) : _type(type) {}
-
-string Node::getNodeType() const {
-    return this->_type;
+Exp* AST::Constant(int value) {
+    Exp* constant = new Exp;
+    constant->type= ExpressionType::Constant;
+    constant->value = value;
+    constant->operand = nullptr;    
+    return constant;
 }
 
-// Exp::Exp() : Node("EXPRESSION"), _integer(0) {}
-
-Exp::Exp(int integer) : Node("EXPRESSION"), _integer(integer) {}
-
-void Exp::setInt(int integer) {
-    _integer = integer;
+Exp* AST::Unary(UnaryOperator op, Exp* operand) {
+    Exp* unary = new Exp;
+    unary->type = ExpressionType::Unary;
+    unary->op = op;
+    unary->operand = operand;
+    return unary;
 }
 
-int Exp::getInt() const {
-    return this->_integer;
+Statement* AST::Return(Exp* exp) {
+    Statement* statement = new Statement;
+    statement->type=StatementType::Return;
+    statement->exp = exp;
+    return statement;
 }
 
-// Statement::Statement() : Node("STATEMENT") {}
-
-Statement::Statement(Exp exp) : Node("STATEMENT"), exp(exp) {}
-
-Exp Statement::getExp() const {
-    return this->exp;
+Function* AST::Func(string id, Statement* statement) {
+    Function* func = new Function;
+    func->id=id;
+    func->statement=statement;
+    return func;
 }
 
-// Function::Function() : Node("FUNCTION") {}
-
-Function::Function(string id, Statement stmt) : Node("FUNCTION"), _id(id), _stmt(stmt) {}
-
-string Function::getId() const {
-    return this->_id;
-}
-
-Statement Function::getStmt() const {
-    return this->_stmt;
-}
-
-// Program::Program() : Node("PROGRAM") {}
-
-Program::Program(Function function) : Node("PROGRAM"), _function(function) {}
-
-Function Program::getFunction() const {
-    return this->_function;
+Program* AST::Prog(Function* function) {
+    Program* program = new Program;
+    program->function = function;
+    return program;
 }

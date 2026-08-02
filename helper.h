@@ -8,4 +8,6 @@ using namespace std;
 // declarations
 stringstream message(string message);
 
+string makeTemp(int tmp);
+
 #endif

@@ -5,3 +5,7 @@ stringstream message(string message) {
     ss_msg << "Syntax Error: Unexpected token -> " << message << endl;
     return ss_msg;
 }
+
+string makeTemp(int tmp) {
+    return  "tmp." + to_string(tmp);
+}

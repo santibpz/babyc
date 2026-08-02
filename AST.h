@@ -2,54 +2,61 @@
 #define AST_H
 
 #include <string>
+#include "Types.h"
 using namespace std;
+
+namespace AST {
 
 class Node {
 public:
     string _type;
 
-    // Node();
     Node(string type);
     string getNodeType() const;
 };
 
-class Exp : public Node {
-public:
-    int _integer;
+// exp = Constant(int) | Unary(unary_operator, exp)
 
-    // Exp();
-    Exp(int integer);
-    void setInt(int integer);
-    int getInt() const;
+struct Exp {
+    ExpressionType type;
+    // Constant
+    int value;
+    // Unary
+    UnaryOperator op;
+    Exp* operand;
 };
 
-class Statement : public Node {
-public:
-    Exp exp;
+// Factory functions
+Exp* Constant(int value);
+Exp* Unary(UnaryOperator op, Exp* operand);
 
-    // Statement();
-    Statement(Exp exp);
-    Exp getExp() const;
+// statement = Return (exp)
+
+struct Statement {
+    StatementType type;
+    // Return Statement
+    Exp* exp;
 };
 
-class Function : public Node {
-public:
-    string _id;
-    Statement _stmt;
+Statement* Return(Exp* exp);
 
-    // Function();
-    Function(string id, Statement stmt);
-    string getId() const;
-    Statement getStmt() const;
+// function_definition = Function(identifier name, statement body)
+
+struct Function {
+    string id;
+    Statement* statement;
 };
 
-class Program : public Node {
-public:
-    Function _function;
+Function* Func(string id, Statement* statement);
 
-    // Program();
-    Program(Function function);
-    Function getFunction() const;
+// program = Program(function _definition)
+
+struct Program {
+    Function* function;
 };
+
+Program* Prog(Function* function);
+
+} // namespace ast
 
 #endif

@@ -10,12 +10,20 @@ d = [0-9]
 
 final states = [3...10] // 3 to 10
 
-    c   (   )   {   }   b   d   ;   other
-0   1   5   6   7   8   0   2   9   10
-1   1   3   3   3   3   3   3   3   3 
-2   4   4   4   4   4   4   2   4   4
+    c   (   )   {   }   b   d   ;   ~   -  other
+0   1   6   7   8   9   0   2   10  11  3   14
+1   1   4   4   4   4   4   1   4   4   4   4
+2   1   5   5   5   5   5   2   5   5   5   5
+3   12  12  12  12  12  12  12  12  12  13  12
 
+final states
 
+4 = identifier found
+5 = digit found
+...
+12 = "-" found
+13 = "--" found
+14 = token not identified
 */
 
 #include <iostream>
@@ -27,9 +35,12 @@ final states = [3...10] // 3 to 10
 #include <sstream>
 #include <vector>
 #include <memory>
+#include <regex>
 #include "helper.h"
+#include "LexicalError.h"
 #include "SyntaxErrorException.h"
 #include "AST.h"
+#include "TackyGenerator.h"
 
 
 using namespace std;
@@ -55,10 +66,17 @@ class Token {
 };
 
 
-vector<vector<int>>stateTable = {
-    {1,5,6,7,8,0,2,9,10},
-    {1,3,3,3,3,3,3,3,3},
-    {4,4,4,4,4,4,2,4,4}
+// vector<vector<int>>stateTable = {
+//     {1,5,6,7,8,0,2,9,10,11},
+//     {1,3,3,3,3,3,1,3,3,3},
+//     {1,4,4,4,4,4,2,4,4,4}
+// };
+
+vector<vector<int>> stateTable = {
+    {1, 6, 7, 8, 9, 0, 2, 10, 11, 3, 14},
+    {1, 4, 4, 4, 4, 4, 1, 4, 4, 4, 4},
+    {1, 5, 5, 5, 5, 5, 2, 5, 5, 5, 5},
+    {12, 12, 12, 12, 12, 12, 12, 12, 12, 13, 12}
 };
 
 map<string, string>TokenTypeMap = {
@@ -70,7 +88,10 @@ map<string, string>TokenTypeMap = {
     {"closeParen", "CLOSE_PAREN"},
     {"openBrace", "OPEN_BRACE"},
     {"closeBrace", "CLOSE_BRACE"},
-    {"semicolon", "SEMI_COLON"}
+    {"semicolon", "SEMI_COLON"},
+    {"tilde", "TILDE"},
+    {"negation", "NEGATION_OP"},
+    {"decrement", "DECREMENT_OP"}
 };
 
 vector<Token>tokenList;
@@ -82,11 +103,15 @@ void tokenizer(string line) {
     char curr;
     string currentTokenStr;
     string tokenType;
+    stringstream err;
     bool tokenFound = false;
     bool reset = false;
     int i = 0;
     while(i < line.size()) {
         curr = line[i]; // current char being processed
+
+        // check eol
+        if(curr == '$') break;
 
         if(reset) {
             currentTokenStr = "";
@@ -110,15 +135,19 @@ void tokenizer(string line) {
             col = 4;
         } else if(curr == ';') {
             col = 7;
-        } else {
+        } else if(curr == '~') {
             col = 8;
+        } else if(curr == '-') {
+            col = 9;
+        } else {
+            col = 10;
         }
 
         // update state
         state = stateTable[state][col];
 
         // Check if final state of current token was reached
-        if(state == 3) {
+        if(state == 4) {
             state = 0;
             // identifer token found
             if(currentTokenStr == "int") {
@@ -126,12 +155,21 @@ void tokenizer(string line) {
             } else if(currentTokenStr == "return") {
                 tokenType = TokenTypeMap[currentTokenStr];
             } else {
+                /*
+                    regex check
+                    identifiers can NOT begin with digits.
+                */ 
+               regex pattern("^\\d+\\w+");
+               if (regex_match(currentTokenStr, pattern)) {
+                err << "Lexical Error: Invalid identifier -> " << currentTokenStr;
+                LEXICAL_ERROR(err.str());
+            }
                 tokenType = TokenTypeMap["identifier"];
             }
             tokenFound = true;
             reset = true;
             i-=1;
-        } else if(state == 4) {
+        } else if(state == 5) {
             // digit token found
             state = 0;
             tokenType = TokenTypeMap["number"];
@@ -139,40 +177,66 @@ void tokenizer(string line) {
             reset = true;
             i-=1;
            
-        } else if(state == 5) {
+        } else if(state == 6) {
             // openParen token found
             state = 0;
             tokenType = TokenTypeMap["openParen"];
             tokenFound = true;
             currentTokenStr = curr;
             reset = true;
-        } else if(state == 6) {
+        } else if(state == 7) {
             // closeParen token found
              state = 0;
             tokenType = TokenTypeMap["closeParen"];
             tokenFound = true;
             currentTokenStr = curr;
-        } else if(state == 7) {
+        } else if(state == 8) {
             // openBrace token found
              state = 0;
             tokenType = TokenTypeMap["openBrace"];
             tokenFound = true;
             currentTokenStr = curr;
             reset = true;
-        } else if(state == 8) {
+        } else if(state == 9) {
             // closeBrace token found
              state = 0;
             tokenType = TokenTypeMap["closeBrace"];
             tokenFound = true;
             currentTokenStr = curr;
-        } else if(state == 9) {
+        } else if(state == 10) {
             // semicolon token found
             state = 0;
             tokenType = TokenTypeMap["semicolon"];
             tokenFound = true;
             currentTokenStr = curr;
-        } else if(state == 10) {
+        } else if(state == 11) {
+            // tilde token found
+            state = 0;
+            tokenType = TokenTypeMap["tilde"];
+            tokenFound = true;
+            currentTokenStr = curr;
+            reset = true;
+        } else if(state == 12){
+            // negation op token found
+            state = 0;
+            tokenType = TokenTypeMap["negation"];
+            tokenFound = true;
+            // currentTokenStr = curr;
+            reset = true;
+            i-=1;
+        } else if(state == 13) {
+            // decrement op found
+            state = 0;
+            tokenType = TokenTypeMap["decrement"];
+            tokenFound = true;
+            currentTokenStr += curr;
+            reset = true;
+        }
+        else if(state == 14) {
             // token not identified
+            currentTokenStr = curr;
+            err << "Lexical Error: Token not identified -> " << currentTokenStr;
+            LEXICAL_ERROR(err.str());
         }
 
         if(state != 0) {
@@ -191,7 +255,6 @@ void tokenizer(string line) {
                  cout << token.tokenValue << " -> " << token.tokenType << endl;
             } 
 
-            // cout << token.tokenValue << " -> " << token.tokenType << endl;
             tokenList.push_back(token);
         }
 
@@ -205,39 +268,64 @@ Token next() {
     return tokenList[current];
 }
 
-
-Exp parseExp() {
-    Token tkn = next();
-        if (tkn.tokenType != "NUM" ) {
-            // fail
-            ss_msg << "Syntax Error: Unexpected token -> " << tkn.tokenValue << endl;
-            SYNTAX_ERROR(ss_msg.str());
-        }
-        Exp exp(tkn.tokenVal);
-        return exp;
+UnaryOperator parseUnop(string unopToken) {
+    if(unopToken == "~") {
+        return UnaryOperator::Complement;
+    } else if(unopToken == "-") return UnaryOperator::Negate;
 }
 
-Statement parseStatement() {
+Exp* parseExp() {
     Token tkn = next();
-        if(tkn.tokenType != "RETURN") { 
-        // fail
+    Exp* e;
+        if (tkn.tokenType == "NUM" ) { 
+            //<int>
+            Exp* constant = AST::Constant(tkn.tokenVal);
+            e = constant;
+        } else if(tkn.tokenType == "TILDE" || tkn.tokenType == "NEGATION_OP") {
+            //<unop> <exp>
+            UnaryOperator op = parseUnop(tkn.tokenValue);
+            Exp* operand = parseExp();
+            Exp* unary = Unary(op, operand);
+            e = unary;
+        } else if(tkn.tokenType == "OPEN_PAREN") {
+            //(<exp>)
+            Exp* exp = parseExp();
+            e = exp;
+            // Check at the end CLOSE_PAREN is present
+            tkn = next();
+            if(tkn.tokenType != "CLOSE_PAREN") {
+                ss_msg << "Syntax Error: Expected token \")\" but got \"" << tkn.tokenValue << "\"" << endl;
+                SYNTAX_ERROR(ss_msg.str());
+            }
+        } else {
+            // fail
             ss_msg << "Syntax Error: Unexpected token -> " << tkn.tokenValue << endl;
             SYNTAX_ERROR(ss_msg.str());
         }
-        Exp exp = parseExp(); // this will throw an exception if there is a syntax err
+        return e; // return final expression
+}
 
-        tkn = next();
-        if(tkn.tokenType != "SEMI_COLON") {
-            // fail
-            ss_msg << "Syntax Error: Expected token -> " << tkn.tokenValue << endl;
+Statement* parseStatement() {
+    Token tkn = next();
+    Statement* statement;
+        if(tkn.tokenType == "RETURN") { 
+            Exp* exp = parseExp(); // this will throw an exception if there is a syntax err
+            Statement* returnStmt = Return(exp);
+            tkn = next();
+            if(tkn.tokenType != "SEMI_COLON") {
+                // fail
+                ss_msg << "Syntax Error: Expected token -> " << tkn.tokenValue << endl;
+                SYNTAX_ERROR(ss_msg.str());
+            }
+            statement = returnStmt;
+        } else {
+             ss_msg << "Syntax Error: Malformed statement -> " << endl;
             SYNTAX_ERROR(ss_msg.str());
         }
-        Statement statement(exp);
         return statement;
-    
 }
 
-Function parseFunction() {
+AST::Function* parseFunction() {
     Token tkn = next();
         if(tkn.tokenType != "INT") {
             // fail
@@ -272,7 +360,7 @@ Function parseFunction() {
             SYNTAX_ERROR(ss_msg.str());
         }
 
-        Statement statement = parseStatement(); // function statement
+        Statement* statement = parseStatement(); // function statement
 
         tkn = next();
 
@@ -282,188 +370,43 @@ Function parseFunction() {
             SYNTAX_ERROR(ss_msg.str());
         }
 
-        Function function(id, statement);
+        AST::Function* function = Func(id, statement);
         return function;
-
 }
 
-Program parseProgram() {
-    try {
-        Function function = parseFunction();
-        Program program(function);
+AST::Program* parseProgram() {
+        AST::Function* function = parseFunction();
+        AST::Program* program = Prog(function);
         return program;
-    } catch(const SyntaxErrorException e) {
-        cerr << e.what() << endl;
-        exit(1);
-    }
-    
 }
 
-void printExpression(Exp exp) {
-    cout << exp.getNodeType() << " ";
-    cout << exp.getInt();
+void printExp(Exp* exp) {
+    if(exp->type==ExpressionType::Unary) {
+        if(exp->op == UnaryOperator::Complement) cout << "Complement" << endl;
+        else if(exp->op == UnaryOperator::Negate)cout << "Negate" << endl;
+        cout << "\t";
+        printExp(exp->operand);
+    } else if(exp->type==ExpressionType::Constant) {
+        cout << "\tConstant " << exp->value << endl;
+    }
+}
+
+void printStatement(Statement* stmt) {
+    if(stmt->type==StatementType::Return) {
+        cout << "Return Statement" << endl;
+        printExp(stmt->exp);
+    }
     return;
 }
 
-void printStatement(Statement stmt) {
-    cout << stmt.getNodeType() << endl;
-    cout << "\t\t";
-    printExpression(stmt.getExp());
-    return;
+void printFunction(AST::Function* fn) {
+    cout << "Function " << fn->id << endl;
+    printStatement(fn->statement);
 }
 
-void printFunction(Function fn) {
-    cout << fn.getNodeType() << endl;
-    cout << "\t";
-    cout << fn.getId() << endl;
-    cout << "\t";
-    printStatement(fn.getStmt());
-}
-
-void printProgram(Program program) {
-    cout << program.getNodeType() << endl;
-    cout << "\t";
-    printFunction(program.getFunction());
-}
-
-enum class OperandType { Imm, Register };
-
-struct Operand {
-    OperandType type;
-    Operand () {};
-    Operand(OperandType type) : type(type) {}
-};
-
-struct Imm : Operand {
-    int value;
-    Imm() {};
-    Imm(int val) : Operand(OperandType::Imm), value(val) {};
-};
-
-enum class RegisterName { EAX };
-
-string getRegisterName(RegisterName registerName) {
-        switch (registerName) {
-            case RegisterName::EAX: return "eax";
-        }
-        return "should not fall here";
-    }
-
-struct Register : Operand {
-    RegisterName registerName;
-    Register(RegisterName regName) : Operand(OperandType::Register), registerName(regName) {}
-};
-
-enum class InstructionType {
-    Mov,
-    Ret
-};
-
-struct Instruction {
-    InstructionType type;
-    Instruction(InstructionType type) : type(type) {}
-    virtual ~Instruction() = default;
-};
-
-struct Mov : Instruction {
-    Imm src;
-    Register dst;
-
-     Mov(const Imm& s, const Register& d)
-        : Instruction(InstructionType::Mov), src(s), dst(d) {}
-};
-
-struct Ret : Instruction {
-    Ret() : Instruction(InstructionType::Ret) {}
-};
-
-struct Func {
-    string identifier;
-    vector<unique_ptr<Instruction>> instructions;
-};
-
-struct Prog {
-    Func fn;
-};
-
-Imm genExp(const Exp& exp) {
-    // Imm imm;
-    // if(exp.getNodeType() == "EXPRESSION") {
-        Imm imm(exp.getInt());
-        // imm.value = exp.getInt();
-    // }
-    return imm;
-}
-
-vector<unique_ptr<Instruction>> genStmt(const Statement& stmt) {
-    // statement = statement ::= "return" <exp> ";"
-    vector<unique_ptr<Instruction>> instructions;
-    if(stmt.getNodeType() == "STATEMENT") {
-        Imm imm = genExp(stmt.getExp());
-        Register reg(RegisterName::EAX);
-        instructions.push_back(make_unique<Mov>(imm, reg));
-        instructions.push_back(make_unique<Ret>());
-    }
-    return instructions;
-}
-
-
-Func genFunc(const Function& function) {
-    // <function> ::= "int" <id> "(" ")" "{" <statement> "}"
-    Func fn;
-    if(function.getNodeType() == "FUNCTION") {
-        fn.identifier = function.getId();
-        fn.instructions = genStmt(function.getStmt());
-    }
-    return fn;
-}
-
-Prog genProg(const Program& program) {
-    // <program> ::= <function>
-    Prog prog;
-    if(program.getNodeType() == "PROGRAM") {
-        Func fn = genFunc(program.getFunction());
-        prog.fn = std::move(fn);
-    }
-    return prog;
-}
-
-// Emit Code
-
-void emitMov(const Mov& mov) {
-    output << "\t" << "movl\t";
-    output << "$" << mov.src.value << ", ";
-    output << "%" << getRegisterName(mov.dst.registerName) << endl;
-
-}
-
-void emitRet() {
-    output << "\t" << "ret" << endl;
-}
-
-void emitInstructions(const vector<unique_ptr<Instruction>>& instructions) {
-    for(const auto& instruction: instructions) {
-        // Get instruction type
-        InstructionType type = instruction->type;
-        if(type == InstructionType::Mov) {
-            const Mov* mov = static_cast<const Mov*>(instruction.get());
-            emitMov(*mov);
-        } else if(type == InstructionType::Ret) {
-            emitRet();
-        }
-    }
-
-}
-
-void emitFunc(const Func& fn) {
-    output << "\t" << ".globl " << fn.identifier << endl;
-    output << fn.identifier << ":" << endl;
-    emitInstructions(fn.instructions);
-}
-
-void emit(const Prog& prog) {
-    emitFunc(prog.fn);
-    output << "\t" << ".section\t" ".note.GNU-stack,\"\",@progbits" << endl;
+void printProgram(AST::Program* program) {
+    cout << "Program " <<endl;
+    printFunction(program->function);
 }
 
 
@@ -471,30 +414,40 @@ int main()
 {
     string line;
     fstream fs("./test.txt");
-    if (!fs.is_open())
-    {
-
-        cout << "Failed to open file";
-    }
-    else
-    {
-        while (!fs.eof())
+    try {
+        if (!fs.is_open())
         {
-            // process each line with the tokenizer
-            getline(fs >> ws, line);
-            line.push_back('$');
-            tokenizer(line);
+            cout << "Failed to open file";
         }
+        else
+        {
+            while (!fs.eof())
+            {
+                // process each line with the tokenizer
+                getline(fs >> ws, line);
+                line.push_back('$');
+                tokenizer(line);
+            }
+            // Parser
+            // Exp* exp = parseExp();
+            // printExp(exp);
+            // Statement* stmt = parseStatement();
+            // printStatement(stmt);
+            // Function* fn = parseFunction();
+            // printFunction(fn);
+            AST::Program* prog = parseProgram();
+            printProgram(prog);
 
-        // AST
-        Program program = parseProgram(); 
-    
-        printProgram(program);
+            // Generate TAC expression
+            TAC::Program* programTAC = emitProgram(prog);
 
-        //assemby AST
-        Prog p = genProg(program);
-        cout << endl;
-        emit(p);
+        }
+    } catch (const LexicalError& e) {
+        cerr << e.what() << endl;
+        return 1;
+    } catch (const SyntaxErrorException& e) {
+        cerr << e.what() << endl;
+        return 1;
     }
     return 0;
 }
