@@ -27,4 +27,30 @@ enum class InstructionType {
     Unary
 };
 
+/*Assemby AST Types*/
+
+enum class OperandType {
+    Imm,
+    Reg,
+    Pseudo,
+    Stack
+};
+
+enum class Register {
+    AX,
+    R10
+};
+
+enum class UnaryOp {
+    Neg,
+    Not
+};
+
+enum class AsmInstructionType {
+    Mov,
+    Unary,
+    AllocateStack,
+    Ret
+};
+
 #endif

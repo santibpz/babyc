@@ -41,6 +41,7 @@ final states
 #include "SyntaxErrorException.h"
 #include "AST.h"
 #include "TackyGenerator.h"
+#include "AssemblyASTGenerator.h"
 
 
 using namespace std;
@@ -433,13 +434,20 @@ int main()
             // printExp(exp);
             // Statement* stmt = parseStatement();
             // printStatement(stmt);
-            // Function* fn = parseFunction();
-            // printFunction(fn);
-            AST::Program* prog = parseProgram();
-            printProgram(prog);
+            AST::Function* fn = parseFunction();
+            printFunction(fn);
+            // AST::Program* prog = parseProgram();
+            // printProgram(prog);
 
-            // Generate TAC expression
-            TAC::Program* programTAC = emitProgram(prog);
+            // Generate TAC 
+            TAC::Function* fun = emitFunction(fn);
+            // TAC::Program* programTAC = emitProgram(prog);
+
+            // Generate Assembly AST
+            ASM_AST::Function* asmFn = emitFunction(fun);
+
+            // Replace Pseudo registers  with Stack offset
+            replacePseudoRegisters(asmFn);
 
         }
     } catch (const LexicalError& e) {
