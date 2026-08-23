@@ -434,20 +434,31 @@ int main()
             // printExp(exp);
             // Statement* stmt = parseStatement();
             // printStatement(stmt);
-            AST::Function* fn = parseFunction();
-            printFunction(fn);
-            // AST::Program* prog = parseProgram();
-            // printProgram(prog);
+            // AST::Function* fn = parseFunction();
+            // printFunction(fn);
+            AST::Program* prog = parseProgram();
+            printProgram(prog);
 
             // Generate TAC 
-            TAC::Function* fun = emitFunction(fn);
-            // TAC::Program* programTAC = emitProgram(prog);
+            // TAC::Function* fun = emitFunction(fn);
+            TAC::Program* programTAC = emitProgram(prog);
 
             // Generate Assembly AST
-            ASM_AST::Function* asmFn = emitFunction(fun);
+            // ASM_AST::Function* asmFn = emitFunction(fun);
+            ASM_AST::Program* programAST = emitProgram(programTAC);
+
+            cout << "program AST done" << endl;
 
             // Replace Pseudo registers  with Stack offset
-            replacePseudoRegisters(asmFn);
+            int stackOffset = replacePseudoRegisters(programAST);
+
+            cout << "stack offset: " << stackOffset << endl;
+
+            cout << endl;
+
+            cout << "allocating stack" << endl;
+
+            fixInstructions(programAST, stackOffset);
 
         }
     } catch (const LexicalError& e) {

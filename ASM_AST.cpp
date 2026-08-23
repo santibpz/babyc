@@ -66,10 +66,11 @@ Instruction* ASM_AST::Ret() {
 
 /*Function Factory*/
 
-Function* ASM_AST::Func(string identifier, vector<Instruction*> instructions) {
+
+Function* ASM_AST::Func(string identifier, Instruction* head) {
     Function* function = new Function;
     function->identifier= identifier;
-    function->instructions = instructions;
+    function->head = head;
     return function;
 }
 

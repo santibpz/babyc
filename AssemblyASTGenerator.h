@@ -3,7 +3,10 @@
 
 using namespace ASM_AST;
 
+ASM_AST::Instruction* emitInstructions(vector<TAC::Instruction*>instructions);
 ASM_AST::Function* emitFunction(TAC::Function* function);
-vector<ASM_AST::Instruction*> emitInstructions(vector<TAC::Instruction*>instructions);
+ASM_AST::Program* emitProgram(TAC::Program* program);
 
-void replacePseudoRegisters(ASM_AST::Function* function); // TODO: Update this to take program as param
+int replacePseudoRegisters(ASM_AST::Program*& program); 
+
+void fixInstructions(ASM_AST::Program*& program, int stackOffset);

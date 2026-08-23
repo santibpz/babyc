@@ -43,6 +43,8 @@ instruction = Mov(operand src, operand dst)
 struct Instruction {
     AsmInstructionType type;
 
+    Instruction* next = nullptr;
+
     // Mov
     Operand* src;
     Operand* dst;
@@ -67,10 +69,12 @@ Instruction* Ret();
 
 struct Function {
     string identifier;
-    vector<Instruction*> instructions;
+    Instruction* head; // Linked list 
+    // vector<Instruction*> instructions;
 };
 
-Function* Func(string identifier, vector<Instruction*> instructions);
+// Function* Func(string identifier, vector<Instruction*> instructions);
+Function* Func(string identifier, Instruction* head);
 
 /*program = Program(function_definition)*/
 
