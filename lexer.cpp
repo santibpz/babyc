@@ -42,12 +42,13 @@ final states
 #include "AST.h"
 #include "TackyGenerator.h"
 #include "AssemblyASTGenerator.h"
+#include "codeGenerator.h"
 
 
 using namespace std;
 
 stringstream ss_msg;
-ofstream output("output.s");
+
 
 
 class Token {
@@ -445,12 +446,12 @@ int main()
 
             // Generate Assembly AST
             // ASM_AST::Function* asmFn = emitFunction(fun);
-            ASM_AST::Program* programAST = emitProgram(programTAC);
+            ASM_AST::Program* programASM = emitProgram(programTAC);
 
             cout << "program AST done" << endl;
 
             // Replace Pseudo registers  with Stack offset
-            int stackOffset = replacePseudoRegisters(programAST);
+            int stackOffset = replacePseudoRegisters(programASM);
 
             cout << "stack offset: " << stackOffset << endl;
 
@@ -458,7 +459,13 @@ int main()
 
             cout << "allocating stack" << endl;
 
-            fixInstructions(programAST, stackOffset);
+            fixInstructions(programASM, stackOffset);
+
+
+            cout << endl;
+            cout << "Code gen: " << endl;
+
+            programEmitter(programASM);
 
         }
     } catch (const LexicalError& e) {
